@@ -18,8 +18,13 @@ package com.netflix.hystrix.dashboard.stream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.*;
+import java.security.cert.X509Certificate;
 import java.util.Map;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -31,8 +36,14 @@ import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.PoolingClientConnectionManager;
+import org.apache.http.impl.conn.SingleClientConnManager;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpParams;
 import org.slf4j.Logger;
@@ -97,6 +108,7 @@ public class ProxyStreamServlet extends HttpServlet {
                 httpget.addHeader("Authorization", authorization);
             }
             HttpClient client = ProxyConnectionManager.httpClient;
+
             HttpResponse httpResponse = client.execute(httpget);
             int statusCode = httpResponse.getStatusLine().getStatusCode();
             if (statusCode == HttpStatus.SC_OK) {
@@ -158,7 +170,29 @@ public class ProxyStreamServlet extends HttpServlet {
     }
 
     private static class ProxyConnectionManager {
-        private final static PoolingClientConnectionManager threadSafeConnectionManager = new PoolingClientConnectionManager();
+
+        private static final SchemeRegistry schemeRegistry;
+
+        static{
+            SSLSocketFactory sf = null;
+            try {
+                sf = new SSLSocketFactory(new TrustSelfSignedStrategy(), SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+            } catch (KeyManagementException e) {
+                e.printStackTrace();
+            } catch (KeyStoreException e) {
+                e.printStackTrace();
+            } catch (UnrecoverableKeyException e) {
+                e.printStackTrace();
+            }
+            Scheme httpsScheme = new Scheme("https", 443, sf);
+            schemeRegistry = new SchemeRegistry();
+            schemeRegistry.register(httpsScheme);
+        }
+
+
+        private final static PoolingClientConnectionManager threadSafeConnectionManager = new PoolingClientConnectionManager(schemeRegistry);
         private final static HttpClient httpClient = new DefaultHttpClient(threadSafeConnectionManager);
 
         static {
@@ -172,5 +206,9 @@ public class ProxyStreamServlet extends HttpServlet {
             threadSafeConnectionManager.setDefaultMaxPerRoute(400);
             threadSafeConnectionManager.setMaxTotal(400);
         }
+
+
+
+
     }
 }
