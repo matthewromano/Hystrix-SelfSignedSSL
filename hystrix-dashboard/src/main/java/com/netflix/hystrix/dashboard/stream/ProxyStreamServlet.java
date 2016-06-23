@@ -37,6 +37,7 @@ import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
@@ -187,8 +188,10 @@ public class ProxyStreamServlet extends HttpServlet {
                 e.printStackTrace();
             }
             Scheme httpsScheme = new Scheme("https", 443, sf);
+            Scheme httpScheme = new Scheme("http", 80, PlainSocketFactory.getSocketFactory());
             schemeRegistry = new SchemeRegistry();
             schemeRegistry.register(httpsScheme);
+            schemeRegistry.register(httpScheme);
         }
 
 
